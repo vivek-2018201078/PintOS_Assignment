@@ -162,6 +162,24 @@ thread_print_stats (void)
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
+
+/////////////////////////////////////////////////////////
+
+
+//checking if current thread priority is less than head of ready list(max priority thread)
+//if yes - yields current running thread for head of ready list.
+static void check_thread_preempt (void) {
+  enum intr_level prev_intr_level = intr_disable();
+  struct thread *current = thread_current();
+  struct list_elem *ready_head_elem = list_front(&ready_list);
+  struct thread *ready_head = list_entry(ready_head_elem, struct thread, elem);
+  if(!list_empty(&ready_list) && current->priority < ready_head->priority) {
+    thread_yield();
+  }
+  intr_set_level(prev_intr_level);
+}
+/////////////////////////////////////////////////////////
+
 tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
@@ -201,6 +219,13 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  //////////////////////////////////////////////////////////////
+
+  //after creating thread check if ready list changed and affects preemption of currently
+  //running tread
+  check_thread_preempt();
+  //////////////////////////////////////////////////////////////
+
   return tid;
 }
 
@@ -228,6 +253,18 @@ thread_block (void)
    be important: if the caller had disabled interrupts itself,
    it may expect that it can atomically unblock a thread and
    update other data. */
+///////////////////////////////////////////////////////////////
+
+
+//helper comparator function for inserting into ready queue
+static bool ready_list_helper(const struct list_elem *i, const struct list_elem *j, void *aux UNUSED) {
+  const struct thread *first =  list_entry(i, struct thread, elem);
+  const struct thread *second =  list_entry(j, struct thread, elem);
+
+  return first->priority > second->priority;
+}
+///////////////////////////////////////////////////////////////
+
 void
 thread_unblock (struct thread *t) 
 {
@@ -237,7 +274,15 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+
+  ///////////////////////////////////////////////////////////////
+
+
+  //insert according to priority into ready list
+  list_insert_ordered (&ready_list, &t->elem, ready_list_helper , NULL);
+  ///////////////////////////////////////////////////////////////
+
+  //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
