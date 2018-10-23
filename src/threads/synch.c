@@ -269,13 +269,7 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
-/* One semaphore in a list. */
-struct semaphore_elem 
-  {
-    struct list_elem elem;              /* List element. */
-    struct semaphore semaphore;         /* This semaphore. */
-  };
+
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
@@ -308,6 +302,19 @@ cond_init (struct condition *cond)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+
+/////////////////////////////////////////////////////////////////////
+
+
+//helper function for priority based insertion in struct condition
+static bool cond_helper(const struct list_elem *i, const struct list_elem *j, void *aux UNUSED) {
+  const struct semaphore_elem *first =  list_entry(i, struct semaphore_elem, elem);
+  const struct semaphore_elem *second =  list_entry(j, struct semaphore_elem, elem);
+
+  return first->priority > second->priority;
+}
+/////////////////////////////////////////////////////////////////////
+
 void
 cond_wait (struct condition *cond, struct lock *lock) 
 {
@@ -319,7 +326,14 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  
+  /////////////////////////////////////////////////////
+
+  //inserting into condition acording to priority to br read later.
+  waiter.priority = lock->holder->priority;
+  list_insert_ordered (&cond->waiters, &waiter.elem ,cond_helper, NULL);
+  //list_push_back (&cond->waiters, &waiter.elem);
+  //////////////////////////////////////////////////////
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
