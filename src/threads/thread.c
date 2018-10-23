@@ -163,14 +163,19 @@ thread_print_stats (void)
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
 
+///////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////
 
 
 //checking if current thread priority is less than head of ready list(max priority thread)
 //if yes - yields current running thread for head of ready list.
-static void check_thread_preempt (void) {
+void check_thread_preempt (void) {
   enum intr_level prev_intr_level = intr_disable();
   struct thread *current = thread_current();
+  if(list_empty(&ready_list)) {
+    intr_set_level(prev_intr_level);
+    return;
+  }
   struct list_elem *ready_head_elem = list_front(&ready_list);
   struct thread *ready_head = list_entry(ready_head_elem, struct thread, elem);
   if(!list_empty(&ready_list) && current->priority < ready_head->priority) {
@@ -263,7 +268,6 @@ static bool ready_list_helper(const struct list_elem *i, const struct list_elem 
 
   return first->priority > second->priority;
 }
-///////////////////////////////////////////////////////////////
 
 void
 thread_unblock (struct thread *t) 
@@ -385,7 +389,7 @@ thread_set_priority (int new_priority)
   ////////////////////////////////////////////////////////////////////
 
 
-  //checking preemption after current thread priority is changed
+  //checking preemption after current thread priority
   struct thread *current = thread_current();
   current->priority = new_priority;
   check_thread_preempt();

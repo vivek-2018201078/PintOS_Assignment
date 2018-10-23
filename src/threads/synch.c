@@ -57,6 +57,18 @@ sema_init (struct semaphore *sema, unsigned value)
    interrupt handler.  This function may be called with
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. */
+
+///////////////////////////////////////////////////////////////
+
+
+//helper comparator function for inserting into ready queue
+static bool ready_list_helper(const struct list_elem *i, const struct list_elem *j, void *aux UNUSED) {
+  const struct thread *first =  list_entry(i, struct thread, elem);
+  const struct thread *second =  list_entry(j, struct thread, elem);
+
+  return first->priority > second->priority;
+}
+///////////////////////////////////////////////////////////////
 void
 sema_down (struct semaphore *sema) 
 {
@@ -68,7 +80,13 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      //list_push_back (&sema->waiters, &thread_current ()->elem);
+
+      //////////////////////////////////////////////////////////////////
+
+      //insert in order of priority in semaphore waiting list
+      list_insert_ordered (&sema->waiters, &thread_current()->elem, ready_list_helper , NULL);
+      //////////////////////////////////////////////////////////////////
       thread_block ();
     }
   sema->value--;
@@ -117,6 +135,12 @@ sema_up (struct semaphore *sema)
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
   sema->value++;
+
+  //////////////////////////////////////////////////////////
+
+  //check for possible ready queue change for preemption
+  check_thread_preempt();
+  /////////////////////////////////////////////////////////
   intr_set_level (old_level);
 }
 
